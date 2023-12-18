@@ -1,6 +1,6 @@
 //! Idiomatic and safe APIs for interacting with the
 //! [Lightning Memory-mapped Database (LMDB)](https://symas.com/lmdb).
-
+#![warn(clippy::all, clippy::cargo)]
 #![deny(missing_docs)]
 #![doc(html_root_url = "https://docs.rs/lmdb-rkv/0.14.0")]
 

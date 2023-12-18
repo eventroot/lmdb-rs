@@ -257,7 +257,7 @@ unsafe fn slice_to_val(slice: Option<&[u8]>) -> ffi::MDB_val {
 }
 
 unsafe fn val_to_slice<'a>(val: ffi::MDB_val) -> &'a [u8] {
-    slice::from_raw_parts(val.mv_data as *const u8, val.mv_size as usize)
+    slice::from_raw_parts(val.mv_data as *const u8, val.mv_size)
 }
 
 /// An iterator over the key/value pairs in an LMDB database.
@@ -310,8 +310,8 @@ impl<'txn> Iterator for Iter<'txn> {
     type Item = Result<(&'txn [u8], &'txn [u8])>;
 
     fn next(&mut self) -> Option<Result<(&'txn [u8], &'txn [u8])>> {
-        match self {
-            &mut Iter::Ok {
+        match *self {
+            Iter::Ok {
                 cursor,
                 ref mut op,
                 next_op,
@@ -336,7 +336,7 @@ impl<'txn> Iterator for Iter<'txn> {
                     }
                 }
             },
-            &mut Iter::Err(err) => Some(Err(err)),
+            Iter::Err(err) => Some(Err(err)),
         }
     }
 }
@@ -391,7 +391,7 @@ impl<'txn> Iterator for IterDup<'txn> {
 
     fn next(&mut self) -> Option<Iter<'txn>> {
         match self {
-            &mut IterDup::Ok {
+            IterDup::Ok {
                 cursor,
                 ref mut op,
                 _marker,
@@ -405,15 +405,15 @@ impl<'txn> Iterator for IterDup<'txn> {
                     mv_data: ptr::null_mut(),
                 };
                 let op = mem::replace(op, ffi::MDB_NEXT_NODUP);
-                let err_code = unsafe { ffi::mdb_cursor_get(cursor, &mut key, &mut data, op) };
+                let err_code = unsafe { ffi::mdb_cursor_get(*cursor, &mut key, &mut data, op) };
 
                 if err_code == ffi::MDB_SUCCESS {
-                    Some(Iter::new(cursor, ffi::MDB_GET_CURRENT, ffi::MDB_NEXT_DUP))
+                    Some(Iter::new(*cursor, ffi::MDB_GET_CURRENT, ffi::MDB_NEXT_DUP))
                 } else {
                     None
                 }
             },
-            &mut IterDup::Err(err) => Some(Iter::Err(err)),
+            IterDup::Err(err) => Some(Iter::Err(*err)),
         }
     }
 }
@@ -515,7 +515,7 @@ mod test {
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
-            for &(ref key, ref data) in &items {
+            for (ref key, ref data) in &items {
                 txn.put(db, key, data, WriteFlags::empty()).unwrap();
             }
             txn.commit().unwrap();
@@ -610,7 +610,7 @@ mod test {
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
-            for &(ref key, ref data) in &items {
+            for (ref key, ref data) in &items {
                 txn.put(db, key, data, WriteFlags::empty()).unwrap();
             }
             txn.commit().unwrap();
@@ -672,7 +672,7 @@ mod test {
 
         {
             let mut txn = env.begin_rw_txn().unwrap();
-            for &(ref key, ref data) in &items {
+            for (ref key, ref data) in &items {
                 txn.put(db, key, data, WriteFlags::empty()).unwrap();
             }
             txn.commit().unwrap();
@@ -680,7 +680,7 @@ mod test {
 
         let mut txn = env.begin_rw_txn().unwrap();
         let mut cursor = txn.open_rw_cursor(db).unwrap();
-        assert_eq!(items, cursor.iter_dup().flat_map(|x| x).collect::<Result<Vec<_>>>().unwrap());
+        assert_eq!(items, cursor.iter_dup().flatten().collect::<Result<Vec<_>>>().unwrap());
 
         assert_eq!(
             items.clone().into_iter().take(1).collect::<Vec<(&[u8], &[u8])>>(),

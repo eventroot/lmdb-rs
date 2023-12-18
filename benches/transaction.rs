@@ -14,10 +14,8 @@ use lmdb::{
     Transaction,
     WriteFlags,
 };
-use rand::{
-    Rng,
-    XorShiftRng,
-};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use std::ptr;
 use test::{
     black_box,
@@ -33,7 +31,8 @@ fn bench_get_rand(b: &mut Bencher) {
     let txn = env.begin_ro_txn().unwrap();
 
     let mut keys: Vec<String> = (0..n).map(get_key).collect();
-    XorShiftRng::new_unseeded().shuffle(&mut keys[..]);
+    let mut rng = thread_rng();
+    keys.shuffle(&mut rng);
 
     b.iter(|| {
         let mut i = 0usize;
@@ -52,7 +51,8 @@ fn bench_get_rand_raw(b: &mut Bencher) {
     let _txn = env.begin_ro_txn().unwrap();
 
     let mut keys: Vec<String> = (0..n).map(get_key).collect();
-    XorShiftRng::new_unseeded().shuffle(&mut keys[..]);
+    let mut rng = thread_rng();
+    keys.shuffle(&mut rng);
 
     let dbi = db.dbi();
     let txn = _txn.txn();
@@ -87,11 +87,12 @@ fn bench_put_rand(b: &mut Bencher) {
     let db = env.open_db(None).unwrap();
 
     let mut items: Vec<(String, String)> = (0..n).map(|n| (get_key(n), get_data(n))).collect();
-    XorShiftRng::new_unseeded().shuffle(&mut items[..]);
+    let mut rng = thread_rng();
+    items.shuffle(&mut rng);
 
     b.iter(|| {
         let mut txn = env.begin_rw_txn().unwrap();
-        for &(ref key, ref data) in items.iter() {
+        for (ref key, ref data) in items.iter() {
             txn.put(db, key, data, WriteFlags::empty()).unwrap();
         }
         txn.abort();
@@ -105,7 +106,8 @@ fn bench_put_rand_raw(b: &mut Bencher) {
     let db = _env.open_db(None).unwrap();
 
     let mut items: Vec<(String, String)> = (0..n).map(|n| (get_key(n), get_data(n))).collect();
-    XorShiftRng::new_unseeded().shuffle(&mut items[..]);
+    let mut rng = thread_rng();
+    items.shuffle(&mut rng);
 
     let dbi = db.dbi();
     let env = _env.env();
@@ -124,7 +126,7 @@ fn bench_put_rand_raw(b: &mut Bencher) {
         mdb_txn_begin(env, ptr::null_mut(), 0, &mut txn);
 
         let mut i: ::libc::c_int = 0;
-        for &(ref key, ref data) in items.iter() {
+        for (ref key, ref data) in items.iter() {
             key_val.mv_size = key.len() as size_t;
             key_val.mv_data = key.as_bytes().as_ptr() as *mut _;
             data_val.mv_size = data.len() as size_t;

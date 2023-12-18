@@ -106,14 +106,14 @@ pub trait Transaction: Sized {
         };
         unsafe {
             match ffi::mdb_get(self.txn(), database.dbi(), &mut key_val, &mut data_val) {
-                ffi::MDB_SUCCESS => Ok(slice::from_raw_parts(data_val.mv_data as *const u8, data_val.mv_size as usize)),
+                ffi::MDB_SUCCESS => Ok(slice::from_raw_parts(data_val.mv_data as *const u8, data_val.mv_size)),
                 err_code => Err(Error::from_err_code(err_code)),
             }
         }
     }
 
     /// Open a new read-only cursor on the given database.
-    fn open_ro_cursor<'txn>(&'txn self, db: Database) -> Result<RoCursor<'txn>> {
+    fn open_ro_cursor(&self, db: Database) -> Result<RoCursor<'_>> {
         RoCursor::new(self, db)
     }
 
@@ -290,7 +290,7 @@ impl<'env> RwTransaction<'env> {
     }
 
     /// Opens a new read-write cursor on the given database and transaction.
-    pub fn open_rw_cursor<'txn>(&'txn mut self, db: Database) -> Result<RwCursor<'txn>> {
+    pub fn open_rw_cursor(&mut self, db: Database) -> Result<RwCursor<'_>> {
         RwCursor::new(self, db)
     }
 
@@ -348,7 +348,7 @@ impl<'env> RwTransaction<'env> {
                 &mut data_val,
                 flags.bits() | ffi::MDB_RESERVE,
             ))?;
-            Ok(slice::from_raw_parts_mut(data_val.mv_data as *mut u8, data_val.mv_size as usize))
+            Ok(slice::from_raw_parts_mut(data_val.mv_data as *mut u8, data_val.mv_size))
         }
     }
 
@@ -399,10 +399,10 @@ impl<'env> RwTransaction<'env> {
     }
 
     /// Begins a new nested transaction inside of this transaction.
-    pub fn begin_nested_txn<'txn>(&'txn mut self) -> Result<RwTransaction<'txn>> {
+    pub fn begin_nested_txn(&mut self) -> Result<RwTransaction<'_>> {
         let mut nested: *mut ffi::MDB_txn = ptr::null_mut();
         unsafe {
-            let env: *mut ffi::MDB_env = ffi::mdb_txn_env(self.txn());
+            let env = ffi::mdb_txn_env(self.txn());
             ffi::mdb_txn_begin(env, self.txn(), 0, &mut nested);
         }
         Ok(RwTransaction {
@@ -411,7 +411,6 @@ impl<'env> RwTransaction<'env> {
         })
     }
 }
-
 impl<'env> Transaction for RwTransaction<'env> {
     fn txn(&self) -> *mut ffi::MDB_txn {
         self.txn

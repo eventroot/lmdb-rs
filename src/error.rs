@@ -1,5 +1,4 @@
 use libc::c_int;
-use std::error::Error as StdError;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::{
@@ -112,21 +111,19 @@ impl Error {
             Error::Other(err_code) => err_code,
         }
     }
+    fn describe_underlying_error(&self) -> &str {
+        let code = self.to_err_code();
+        unsafe {
+            // This is safe since the error messages returned from mdb_strerror are static.
+            let err: *const c_char = ffi::mdb_strerror(code) as *const c_char;
+            str::from_utf8_unchecked(CStr::from_ptr(err).to_bytes())
+        }
+    }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "{}", self.description())
-    }
-}
-
-impl StdError for Error {
-    fn description(&self) -> &str {
-        unsafe {
-            // This is safe since the error messages returned from mdb_strerror are static.
-            let err: *const c_char = ffi::mdb_strerror(self.to_err_code()) as *const c_char;
-            str::from_utf8_unchecked(CStr::from_ptr(err).to_bytes())
-        }
+        write!(fmt, "{}", self.describe_underlying_error())
     }
 }
 
@@ -144,13 +141,11 @@ pub fn lmdb_result(err_code: c_int) -> Result<()> {
 #[cfg(test)]
 mod test {
 
-    use std::error::Error as StdError;
-
     use super::*;
 
     #[test]
     fn test_description() {
-        assert_eq!("Permission denied", Error::from_err_code(13).description());
-        assert_eq!("MDB_NOTFOUND: No matching key/data pair found", Error::NotFound.description());
+        assert_eq!("Permission denied", Error::from_err_code(13).to_string());
+        assert_eq!("MDB_NOTFOUND: No matching key/data pair found", Error::NotFound.to_string());
     }
 }

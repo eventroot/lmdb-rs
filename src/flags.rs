@@ -2,11 +2,12 @@ use libc::c_uint;
 
 use ffi::*;
 
-bitflags! {
-    #[doc="Environment options."]
-    #[derive(Default)]
-    pub struct EnvironmentFlags: c_uint {
+#[doc = "Environment options."]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EnvironmentFlags(c_uint);
 
+bitflags! {
+    impl EnvironmentFlags: c_uint {
         #[doc="Use a fixed address for the mmap region. This flag must be specified"]
         #[doc="when creating the environment, and is stored persistently in the environment."]
         #[doc="If successful, the memory map will always reside at the same virtual address"]

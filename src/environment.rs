@@ -48,7 +48,7 @@ trait OsStrExtLmdb {
 #[cfg(windows)]
 impl OsStrExtLmdb for OsStr {
     fn as_bytes(&self) -> &[u8] {
-        &self.to_str().unwrap().as_bytes()
+        self.to_str().unwrap().as_bytes()
     }
 }
 
@@ -94,7 +94,7 @@ impl Environment {
     /// transaction.
     ///
     /// The database name may not contain the null character.
-    pub fn open_db<'env>(&'env self, name: Option<&str>) -> Result<Database> {
+    pub fn open_db(&self, name: Option<&str>) -> Result<Database> {
         let mutex = self.dbi_open_mutex.lock();
         let txn = self.begin_ro_txn()?;
         let db = unsafe { txn.open_db(name)? };
@@ -117,7 +117,7 @@ impl Environment {
     ///
     /// This function will fail with `Error::BadRslot` if called by a thread with an open
     /// transaction.
-    pub fn create_db<'env>(&'env self, name: Option<&str>, flags: DatabaseFlags) -> Result<Database> {
+    pub fn create_db(&self, name: Option<&str>, flags: DatabaseFlags) -> Result<Database> {
         let mutex = self.dbi_open_mutex.lock();
         let txn = self.begin_rw_txn()?;
         let db = unsafe { txn.create_db(name, flags)? };
@@ -139,13 +139,13 @@ impl Environment {
     }
 
     /// Create a read-only transaction for use with the environment.
-    pub fn begin_ro_txn<'env>(&'env self) -> Result<RoTransaction<'env>> {
+    pub fn begin_ro_txn(&self) -> Result<RoTransaction<'_>> {
         RoTransaction::new(self)
     }
 
     /// Create a read-write transaction for use with the environment. This method will block while
     /// there are any other read-write transactions open on the environment.
-    pub fn begin_rw_txn<'env>(&'env self) -> Result<RwTransaction<'env>> {
+    pub fn begin_rw_txn(&self) -> Result<RwTransaction<'_>> {
         RwTransaction::new(self)
     }
 
@@ -284,9 +284,7 @@ impl Stat {
     pub(crate) fn mdb_stat(&mut self) -> *mut ffi::MDB_stat {
         &mut self.0
     }
-}
 
-impl Stat {
     /// Size of a database page. This is the same for all databases in the environment.
     #[inline]
     pub fn page_size(&self) -> u32 {
@@ -376,9 +374,9 @@ impl Drop for Environment {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//// Environment Builder
-///////////////////////////////////////////////////////////////////////////////////////////////////
+/******************************************************************************
+ * Environment Builder
+ *****************************************************************************/
 
 /// Options for opening or creating an environment.
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
